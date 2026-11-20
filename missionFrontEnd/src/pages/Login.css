@@ -1,0 +1,9 @@
+.login-page { display: grid; min-height: 100vh; place-items: center; padding: 1.5rem; background: radial-gradient(circle at 10% 15%, #e5eafe, transparent 32%), #f5f7fb; }
+.login-card { width: min(100%, 430px); padding: clamp(1.5rem, 5vw, 2.5rem); border: 1px solid var(--color-border); border-radius: 18px; background: white; box-shadow: var(--shadow-card); }
+.login-logo { display: block; width: 64px; height: 64px; object-fit: contain; margin-bottom: 1.4rem; }
+.login-eyebrow { margin: 0 0 .45rem; color: var(--color-primary); font-size: .8rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.login-title { margin-bottom: .4rem; }
+.login-description { margin: 0 0 1.7rem; color: var(--color-muted); }
+.login-form { display: grid; gap: .8rem; }
+.field-label { margin-top: .3rem; color: var(--color-text); font-size: .9rem; font-weight: 600; }
+.login-submit { width: 100%; margin-top: .6rem; }

@@ -27,7 +27,7 @@ public class MissionApplication {
 				user.setCin("12345678");
 				user.setEmail("test@test.com");
 				user.setTelephone("12345678");
-				user.setMotDePasse(passwordEncoder.encode("password123"));
+				user.setMotDePasse(passwordEncoder.encode("123456"));
 
 				utilisateurRepository.save(user);
 			}
