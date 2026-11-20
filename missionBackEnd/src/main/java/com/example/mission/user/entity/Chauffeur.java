@@ -14,12 +14,11 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Chauffeur extends Utilisateur {
+
+public class Chauffeur extends Personnel {
 
     private String numPermis;
-
     private String categoriePermis;
-
     private LocalDate dateValiditePermis;
 
     private boolean disponible = true;
@@ -29,4 +28,5 @@ public class Chauffeur extends Utilisateur {
         return Role.CHAUFFEUR;
     }
      //
+
 }

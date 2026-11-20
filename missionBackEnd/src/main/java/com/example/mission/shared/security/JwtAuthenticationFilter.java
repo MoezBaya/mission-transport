@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -19,6 +21,8 @@ import java.util.List;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
     private final UtilisateurRepository utilisateurRepository;
@@ -38,7 +42,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
-        // Pas de token → on laisse passer
         if (header == null || !header.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -49,22 +52,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String email = jwtService.extractEmail(token);
 
-            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (email != null
+                    && jwtService.isTokenValid(token, email)
+                    && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 Utilisateur utilisateur = utilisateurRepository
                         .findByEmail(email)
                         .orElse(null);
 
                 if (utilisateur != null) {
-                    // ⚡ C'est CE bloc qui remplit Authentication
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
-                                    utilisateur.getEmail(),   // principal = email
+                                    utilisateur.getEmail(),
                                     null,
                                     List.of(new SimpleGrantedAuthority(
                                             "ROLE_" + utilisateur.getRole().name()))
                             );
-
                     authToken.setDetails(
                             new WebAuthenticationDetailsSource().buildDetails(request));
 
@@ -72,7 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            System.out.println("JWT invalide: " + e.getMessage());
+            log.warn("JWT invalide: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);
