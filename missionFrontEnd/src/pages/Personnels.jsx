@@ -1,223 +1,466 @@
-import { useState, useMemo } from "react";
+
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import Layout from "../components/Layout";
 import { personnelApi } from "../api/personnels";
+import PageBreadcrumb from "../components/PageBreadcrumb";
+import "./Personnels.css";
+
+import {
+  Search,
+  Eye,
+  Pencil,
+  Trash2,
+  ArrowDown,
+  X,
+  Users,
+} from "lucide-react";
 
 export default function Personnels() {
   const navigate = useNavigate();
+
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("Tous les rôles");
-  const [personnels, setPersonnels] = useState([
-    // données de test — à remplacer par un useEffect + personnelApi.getAll()
-    { id: 1, nomComplet: "Salah Tounsi", email: "salahtounsi@gmail.com", role: "Chef de parc" },
-    { id: 2, nomComplet: "Salah Tounsi", email: "salahtounsi@gmail.com", role: "Chef de parc" },
-    { id: 3, nomComplet: "Salah Tounsi", email: "salahtounsi@gmail.com", role: "Chef de parc" },
-  ]);
+  const [personnels, setPersonnels] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ nomComplet: "", email: "", role: "Chauffeur" });
-  const [error, setError] = useState("");
 
+  const [form, setForm] = useState({
+    nomComplet: "",
+    email: "",
+    role: "Chauffeur",
+    motDePasse: "",
+  });
+
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // ===== Chargement des personnels =====
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const data = await personnelApi.getAll();
+
+        if (!cancelled) {
+          setPersonnels(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPersonnels([
+            {
+              id: 1,
+              nomComplet: "Salah Tounsi",
+              email: "salahtounsi@gmail.com",
+              role: "Chef de parc",
+            },
+            {
+              id: 2,
+              nomComplet: "Salah Tounsi",
+              email: "salahtounsi@gmail.com",
+              role: "Chef de parc",
+            },
+            {
+              id: 3,
+              nomComplet: "Salah Tounsi",
+              email: "salahtounsi@gmail.com",
+              role: "Chef de parc",
+            },
+          ]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ===== Recherche + Filtrage =====
   const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+
     return personnels.filter((p) => {
       const matchSearch =
-        p.nomComplet.toLowerCase().includes(search.toLowerCase()) ||
-        p.email.toLowerCase().includes(search.toLowerCase());
-      const matchRole = role === "Tous les rôles" || p.role === role;
+        (p.nomComplet || "").toLowerCase().includes(q) ||
+        (p.email || "").toLowerCase().includes(q);
+
+      const matchRole =
+        role === "Tous les rôles" || p.role === role;
+
       return matchSearch && matchRole;
     });
   }, [personnels, search, role]);
 
-  function handleAdd(e) {
+  // ===== Ajouter un personnel =====
+  async function handleAdd(e) {
     e.preventDefault();
+
     setError("");
-    // quand l'API sera prête :
-    // await personnelApi.create(form)
-    setPersonnels((prev) => [
-      ...prev,
-      { ...form, id: Date.now() },
-    ]);
-    setForm({ nomComplet: "", email: "", role: "Chauffeur" });
-    setShowModal(false);
+    setSaving(true);
+
+    try {
+      const created = await personnelApi.create(form);
+
+      setPersonnels((prev) => [...prev, created]);
+
+      setForm({
+        nomComplet: "",
+        email: "",
+        role: "Chauffeur",
+        motDePasse: "",
+      });
+
+      setShowModal(false);
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+        "Impossible d'ajouter ce personnel."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleDelete(id) {
-    if (window.confirm("Supprimer ce personnel ?")) {
-      // await personnelApi.remove(id)
-      setPersonnels((prev) => prev.filter((p) => p.id !== id));
+  // ===== Supprimer =====
+  async function handleDelete(id) {
+    if (!window.confirm("Voulez-vous supprimer ce personnel ?")) {
+      return;
+    }
+
+    try {
+      await personnelApi.remove(id);
+      setPersonnels((prev) =>
+        prev.filter((p) => p.id !== id)
+      );
+    } catch (err) {
+      alert("Erreur lors de la suppression du personnel.");
     }
   }
 
   return (
-    <div style={styles.page}>
-      {/* En-tête */}
-      <div style={styles.header}>
+    <Layout>
+
+      {/* ===== BREADCRUMB ===== */}
+      <PageBreadcrumb current="Liste des personnels" />
+
+      {/* ===== PAGE HEADER ===== */}
+      <div className="personnel-page-header">
         <div>
-          <h1 style={styles.title}>Gestion des personnels</h1>
-          <p style={styles.subtitle}>Gérez les personnel</p>
+          <h1 className="page-title">
+            Gestion des personnels
+          </h1>
+
+          <p className="page-subtitle">
+            Gérez les personnels
+          </p>
         </div>
-        <button style={styles.addBtn} onClick={() => setShowModal(true)}>
+
+        <button
+          className="button"
+          onClick={() => {
+            setError("");
+            setShowModal(true);
+          }}
+        >
           + Ajouter un personnel
         </button>
       </div>
 
-      {/* Barre de recherche + filtre */}
-      <div style={styles.toolbar}>
-        <div style={styles.searchBox}>
-          <span style={styles.searchIcon}>🔍</span>
-          <input
-            style={styles.searchInput}
-            placeholder="Rechercher un nom ou une adresse email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* ===== TABLE CONTAINER ===== */}
+      <section className="personnel-table-card">
+
+        {/* ===== SEARCH + FILTER ===== */}
+        <div className="personnel-toolbar">
+
+          <label className="personnel-search">
+            <Search
+              size={25}
+              color="#333"
+              strokeWidth={1.8}
+            />
+
+            <input
+              className="personnel-search-input"
+              type="text"
+              placeholder="Rechercher un nom ou une adresse email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+
+          <select
+            className="form-control personnel-role-filter"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            <option>Tous les rôles</option>
+            <option>Chef de parc</option>
+            <option>Chauffeur</option>
+            <option>Directeur</option>
+          </select>
+
         </div>
-        <select style={styles.select} value={role} onChange={(e) => setRole(e.target.value)}>
-          <option>Tous les rôles</option>
-          <option>Chef de parc</option>
-          <option>Chauffeur</option>
-          <option>Directeur</option>
-        </select>
-      </div>
 
-      {/* Tableau */}
-      <div style={styles.tableCard}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.theadRow}>
-              <th style={styles.th}>Nom complet ↓</th>
-              <th style={styles.th}>E-mail</th>
-              <th style={styles.th}>Rôle</th>
-              <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} style={styles.tr}>
-                <td style={styles.td}>{p.nomComplet}</td>
-                <td style={styles.td}>{p.email}</td>
-                <td style={styles.td}>{p.role}</td>
-                <td style={{ ...styles.td, textAlign: "right" }}>
-                  <button
-                    style={styles.iconBtn}
-                    title="Voir"
-                    onClick={() => navigate(`/personnels/${p.id}`)}
-                  >
-                    👁️
-                  </button>
-                  <button
-                    style={styles.iconBtn}
-                    title="Modifier"
-                    onClick={() => navigate(`/personnels/${p.id}/edit`)}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    style={styles.iconBtn}
-                    title="Supprimer"
-                    onClick={() => handleDelete(p.id)}
-                  >
-                    🗑️
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
+        {/* ===== TABLE ===== */}
+        <div className="personnel-table-scroll">
+          <table className="personnel-table">
+
+            <thead>
               <tr>
-                <td colSpan={4} style={{ ...styles.td, textAlign: "center", color: "#888" }}>
-                  Aucun personnel trouvé
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
 
-      {/* Modal ajout */}
+                <th>
+                  <div className="personnel-sort-header">
+                    Nom complet
+                    <ArrowDown size={21} strokeWidth={2} />
+                  </div>
+                </th>
+
+                <th>
+                  E-mail
+                </th>
+
+                <th>
+                  Rôle
+                </th>
+
+                <th className="personnel-actions-heading">
+                  Actions
+                </th>
+
+              </tr>
+            </thead>
+
+            <tbody>
+
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="personnel-empty-cell">
+                    Chargement des personnels...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="personnel-empty-cell">
+                    <Users size={30} color="#9ca3af" />
+                    <span>Aucun personnel trouvé</span>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((p) => (
+                  <tr key={p.id}>
+
+                    <td>
+                      {p.nomComplet}
+                    </td>
+
+                    <td>
+                      {p.email}
+                    </td>
+
+                    <td>
+                      {p.role}
+                    </td>
+
+                    <td className="personnel-actions-cell">
+
+                      {/* VOIR */}
+                      <button
+                        className="icon-button"
+                        title="Voir"
+                        onClick={() =>
+                          navigate(`/personnels/${p.id}`)
+                        }
+                      >
+                        <Eye size={28} strokeWidth={1.8} />
+                      </button>
+
+                      {/* MODIFIER */}
+                      <button
+                        className="icon-button"
+                        title="Modifier"
+                        onClick={() =>
+                          navigate(`/personnels/${p.id}/edit`)
+                        }
+                      >
+                        <Pencil size={27} strokeWidth={1.8} />
+                      </button>
+
+                      {/* SUPPRIMER */}
+                      <button
+                        className="icon-button icon-button--danger"
+                        title="Supprimer"
+                        onClick={() => handleDelete(p.id)}
+                      >
+                        <Trash2 size={27} strokeWidth={1.8} />
+                      </button>
+
+                    </td>
+
+                  </tr>
+                ))
+              )}
+
+            </tbody>
+          </table>
+        </div>
+
+        {/* ===== FOOTER TABLE ===== */}
+        {!loading && (
+          <div className="personnel-table-footer">
+            Affichage de {filtered.length} personnel(s)
+          </div>
+        )}
+
+      </section>
+
+      {/* ===== MODAL AJOUT ===== */}
       {showModal && (
-        <div style={styles.overlay} onClick={() => setShowModal(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0 }}>Ajouter un personnel</h2>
-            <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+        <div
+          className="modal-overlay"
+          onClick={() => !saving && setShowModal(false)}
+        >
+          <div
+            className="personnel-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+
+            <div className="modal-header">
+              <h2 className="modal-title">
+                Ajouter un personnel
+              </h2>
+
+              <button
+                className="icon-button"
+                onClick={() => setShowModal(false)}
+                disabled={saving}
+              >
+                <X size={23} />
+              </button>
+            </div>
+
+            <p className="modal-subtitle">
+              Remplissez les informations du nouveau personnel.
+            </p>
+
+            <form
+              onSubmit={handleAdd}
+              className="personnel-form"
+            >
+
+              <label className="field-label" htmlFor="personnel-name">
+                Nom complet
+              </label>
+
               <input
-                style={styles.input}
-                placeholder="Nom complet"
+                className="form-control"
+                id="personnel-name"
+                placeholder="Ex : Salah Tounsi"
                 value={form.nomComplet}
-                onChange={(e) => setForm({ ...form, nomComplet: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    nomComplet: e.target.value,
+                  })
+                }
                 required
               />
+
+              <label className="field-label" htmlFor="personnel-email">
+                Adresse e-mail
+              </label>
+
               <input
-                style={styles.input}
+                className="form-control"
+                id="personnel-email"
                 type="email"
-                placeholder="E-mail"
+                placeholder="Ex : exemple@gmail.com"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    email: e.target.value,
+                  })
+                }
                 required
               />
+
+              <label className="field-label" htmlFor="personnel-password">
+                Mot de passe
+              </label>
+
+              <input
+                className="form-control"
+                id="personnel-password"
+                type="password"
+                placeholder="Mot de passe"
+                value={form.motDePasse}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    motDePasse: e.target.value,
+                  })
+                }
+              />
+
+              <label className="field-label" htmlFor="personnel-role">
+                Rôle
+              </label>
+
               <select
-                style={styles.input}
+                className="form-control"
+                id="personnel-role"
                 value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    role: e.target.value,
+                  })
+                }
               >
                 <option>Chauffeur</option>
                 <option>Chef de parc</option>
                 <option>Directeur</option>
               </select>
-              {error && <p style={{ color: "red", margin: 0 }}>{error}</p>}
-              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                <button type="button" style={styles.cancelBtn} onClick={() => setShowModal(false)}>
+
+              {error && (
+                <p className="form-message form-message--error">
+                  {error}
+                </p>
+              )}
+
+              <div className="modal-actions">
+
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  onClick={() => setShowModal(false)}
+                  disabled={saving}
+                >
                   Annuler
                 </button>
-                <button type="submit" style={styles.saveBtn}>Enregistrer</button>
+
+                <button
+                  type="submit"
+                  className="button"
+                  disabled={saving}
+                >
+                  {saving ? "Enregistrement..." : "Enregistrer"}
+                </button>
+
               </div>
+
             </form>
           </div>
         </div>
       )}
-    </div>
+
+    </Layout>
   );
 }
 
-const styles = {
-  page: { padding: "2rem", background: "#f0f2f5", minHeight: "100vh" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" },
-  title: { fontSize: "1.8rem", margin: 0 },
-  subtitle: { color: "#666", margin: "0.25rem 0 0" },
-  addBtn: {
-    background: "#8b9cf9", color: "white", border: "none", borderRadius: "10px",
-    padding: "0.85rem 1.4rem", fontSize: "1rem", cursor: "pointer", fontWeight: 600,
-  },
-  toolbar: { display: "flex", gap: "1rem", marginBottom: "1rem" },
-  searchBox: {
-    flex: 1, display: "flex", alignItems: "center", background: "white",
-    borderRadius: "10px", border: "1px solid #ccc", padding: "0 0.9rem",
-  },
-  searchIcon: { marginRight: "0.5rem" },
-  searchInput: { flex: 1, border: "none", outline: "none", padding: "0.85rem 0", fontSize: "1rem", background: "transparent" },
-  select: {
-    padding: "0.85rem 1rem", borderRadius: "10px", border: "1px solid #ccc",
-    background: "white", fontSize: "1rem", cursor: "pointer", minWidth: "180px",
-  },
-  tableCard: { background: "white", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  theadRow: { borderBottom: "2px solid #eee" },
-  th: { textAlign: "left", padding: "1rem", fontSize: "1rem" },
-  tr: { borderBottom: "1px solid #eee" },
-  td: { padding: "1rem", fontSize: "0.95rem" },
-  iconBtn: { background: "none", border: "none", fontSize: "1.1rem", cursor: "pointer", marginLeft: "0.4rem" },
-  overlay: {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-  },
-  modal: {
-    background: "white", borderRadius: "12px", padding: "1.8rem",
-    width: "400px", boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-  },
-  input: { padding: "0.75rem", borderRadius: "8px", border: "1px solid #ccc", fontSize: "1rem" },
-  cancelBtn: {
-    padding: "0.7rem 1.2rem", borderRadius: "8px", border: "1px solid #ccc",
-    background: "white", cursor: "pointer",
-  },
-  saveBtn: {
-    padding: "0.7rem 1.2rem", borderRadius: "8px", border: "none",
-    background: "#8b9cf9", color: "white", cursor: "pointer", fontWeight: 600,
-  },
-};
