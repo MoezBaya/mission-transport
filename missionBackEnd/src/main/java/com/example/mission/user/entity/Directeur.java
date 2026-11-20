@@ -13,7 +13,7 @@ import java.util.*;
 @Entity
 @DiscriminatorValue("DIRECTEUR")
 @NoArgsConstructor
-public class Directeur extends Utilisateur {
+public class Directeur extends Personnel {
 
     @Override
     public Role getRole() {

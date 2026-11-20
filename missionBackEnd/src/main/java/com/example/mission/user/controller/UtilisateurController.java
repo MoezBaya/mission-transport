@@ -2,6 +2,7 @@ package com.example.mission.user.controller;
 
 import com.example.mission.user.dto.ModifierMdpRequest;
 import com.example.mission.user.service.UtilisateurService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -22,11 +23,13 @@ public class UtilisateurController {
             @RequestBody ModifierMdpRequest request,
             Authentication authentication) {
 
+        if (authentication == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Non authentifié");
+        }
+
         try {
-            // authentication.getName() = email extrait du JWT par ton filtre
             utilisateurService.changerMotDePasse(authentication.getName(), request);
             return ResponseEntity.ok("Mot de passe modifié avec succès");
-
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
