@@ -16,6 +16,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class Chauffeur extends Personnel {
 
+
     private String numPermis;
     private String categoriePermis;
     private LocalDate dateValiditePermis;
@@ -26,7 +27,7 @@ public class Chauffeur extends Personnel {
         return Role.CHAUFFEUR;
     }
 
-    public Boolean getDisponible() {
+    public boolean getDisponible() {
         return disponible;
     }
 
