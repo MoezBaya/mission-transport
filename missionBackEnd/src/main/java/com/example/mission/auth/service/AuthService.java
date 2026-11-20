@@ -7,49 +7,47 @@ import com.example.mission.auth.dto.LoginResponse;
 import com.example.mission.shared.security.JwtService;
 import com.example.mission.user.entity.Utilisateur;
 import com.example.mission.user.repository.UtilisateurRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final AuthenticationManager authenticationManager;
     private final UtilisateurRepository utilisateurRepository;
     private final JwtService jwtService;
 
-    public AuthService(
-            AuthenticationManager authenticationManager,
-            UtilisateurRepository utilisateurRepository,
-            JwtService jwtService) {
-
+    public AuthService(AuthenticationManager authenticationManager,
+                       UtilisateurRepository utilisateurRepository,
+                       JwtService jwtService) {
         this.authenticationManager = authenticationManager;
         this.utilisateurRepository = utilisateurRepository;
         this.jwtService = jwtService;
     }
 
-    // Méthode de connexion
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
+        log.info("Tentative de login: {}", request.getEmail());
 
-        // 1. Vérifier email et mot de passe
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
-                        request.getMotDePasse()
-                )
+                        request.getMotDePasse())
         );
 
-        // 2. Récupérer l'utilisateur
-        Utilisateur utilisateur = utilisateurRepository
-                .findByEmail(request.getEmail())
-                .orElseThrow(() ->
-                        new RuntimeException("Utilisateur introuvable")
-                );
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable"));
 
-        // 3. Générer le token JWT
         String token = jwtService.generateToken(utilisateur);
+        log.info("Login réussi: {}", request.getEmail());
 
-        // 4. Retourner les informations
         return new LoginResponse(
                 token,
                 utilisateur.getId(),
@@ -61,7 +59,7 @@ public class AuthService {
     }
 
     public void logout() {
-
+        // JWT stateless : rien à faire
     }
 }
 
