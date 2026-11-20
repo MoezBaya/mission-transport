@@ -24,7 +24,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;   // ⚡ ajout
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -70,16 +70,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // ⚡ STATELESS : pas de session (JWT)
+                // ⚡ 1. STATELESS (JWT)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+                // ⚡ 2. Routes publiques SEULEMENT
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PathPatternRequestMatcher.withDefaults()
                                 .matcher("/h2-console/**")).permitAll()
-                        // ⚡ Seules les routes publiques
                         .requestMatchers("/v1/api/login", "/v1/api/logout").permitAll()
-                        // ⚡ Tout le reste nécessite un token
                         .anyRequest().authenticated()
                 )
 
@@ -90,7 +89,7 @@ public class SecurityConfig {
                         headers.frameOptions(frame -> frame.sameOrigin())
                 )
 
-                // ⚡⚡⚡ LA LIGNE CRUCIALE : brancher le filtre JWT
+                // ⚡ 3. LE FILTRE JWT
                 .addFilterBefore(jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class);
 

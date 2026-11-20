@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @DiscriminatorValue("DIRECTEUR_LOGISTIQUE")
 @NoArgsConstructor
-public class DirecteurLogistique extends Utilisateur {
+public class DirecteurLogistique extends Personnel {
 
     @Override
     public Role getRole() {
