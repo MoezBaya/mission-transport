@@ -28,4 +28,5 @@ public class Chauffeur extends Utilisateur {
     public Role getRole() {
         return Role.CHAUFFEUR;
     }
+     //
 }
