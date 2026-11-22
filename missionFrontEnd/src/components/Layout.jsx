@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { CarFront, LayoutDashboard, ClipboardList, Fuel, Users, BusFront, ChevronDown, LockKeyhole, LogOut } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Fuel, Users, BusFront, ChevronDown, LockKeyhole, LogOut } from "lucide-react";
 import { useAuth } from "../context/authContext";
+import logo1 from "../assets/img/logo1.png";
 import "./Layout.css";
 
 const menuItems = [
@@ -63,7 +64,7 @@ export default function Layout({ children }) {
   return (
     <div className="app-layout">
       <header className="app-header">
-        <a className="app-brand" href="/dashboard" aria-label="Mission, accueil"><CarFront size={34} strokeWidth={1.7} /><span>Mission</span></a>
+        <a className="app-brand" href="/dashboard" aria-label="Mission, accueil"><img src={logo1} alt="" /></a>
         <UserMenu user={user} onLogout={handleLogout} />
       </header>
       <div className="app-body">
