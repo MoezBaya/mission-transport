@@ -1,21 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/authContext";
 import PrivateRoute from "./components/PrivateRoute";
-import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Personnels from "./pages/Personnels";
+import Chauffeurs from "./pages/Chauffeurs";
 import ChangerMdp from "./pages/ChangerMdp";
-
-// Pages temporaires en attendant de les développer
-function Placeholder({ title }) {
-  return (
-    <Layout>
-      <h1>{title}</h1>
-      <p>Page en cours de développement...</p>
-    </Layout>
-  );
-}
+import Vehicules from "./pages/Vehicules";
 
 export default function App() {
   return (
@@ -34,11 +25,11 @@ export default function App() {
             <PrivateRoute><ChangerMdp /></PrivateRoute>
           } />
 
-          {/* Routes du menu (placeholder pour l'instant) */}
-         
-          
           <Route path="/chauffeurs" element={
-            <PrivateRoute><Placeholder title="Liste des chauffeurs" /></PrivateRoute>
+            <PrivateRoute><Chauffeurs /></PrivateRoute>
+          } />
+          <Route path="/vehicules" element={
+            <PrivateRoute><Vehicules /></PrivateRoute>
           } />
          
 

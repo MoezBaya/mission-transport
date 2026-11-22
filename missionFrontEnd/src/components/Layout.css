@@ -1,6 +1,7 @@
 .app-layout { min-height: 100vh; background: #f5f7fb; }
 .app-header { position: sticky; z-index: 5; top: 0; display: flex; height: 76px; align-items: center; justify-content: space-between; padding: 0 clamp(1rem, 3vw, 2.5rem); border-bottom: 1px solid var(--color-border); background: white; }
 .app-brand { display: inline-flex; align-items: center; gap: .65rem; color: var(--color-primary); font-size: 1.4rem; font-weight: 700; text-decoration: none; }
+.app-brand img { width: auto; height: 48px; object-fit: contain; }
 .user-menu { position: relative; display: flex; align-items: center; gap: .8rem; }
 .user-avatar { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; background: #e9edff; color: var(--color-primary); font-size: .9rem; font-weight: 700; }
 .user-details p { margin: 0; }
@@ -22,4 +23,4 @@
 .app-main { min-width: 0; flex: 1; }
 .app-content { width: min(100%, 1400px); margin: 0 auto; padding: clamp(1.2rem, 3vw, 2rem); }
 @media (max-width: 760px) { .app-header { height: 66px; }.app-body { display: block; }.app-sidebar { width: 100%; padding: .6rem .8rem; border-right: 0; border-bottom: 1px solid var(--color-border); }.sidebar-heading { display: none; }.sidebar-nav { display: flex; overflow-x: auto; gap: .35rem; }.sidebar-link { flex: 0 0 auto; gap: .45rem; padding: .65rem; font-size: .8rem; }.sidebar-link svg { width: 18px; }.app-content { padding: 1.2rem 1rem; } }
-@media (max-width: 420px) { .user-details { display: none; }.app-brand { font-size: 1.2rem; }.sidebar-link span { display: none; }.sidebar-link { padding: .7rem .85rem; } }
+@media (max-width: 420px) { .user-details { display: none; }.app-brand img { height: 38px; }.sidebar-link span { display: none; }.sidebar-link { padding: .7rem .85rem; } }
