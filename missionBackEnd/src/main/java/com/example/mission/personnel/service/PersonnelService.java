@@ -3,10 +3,9 @@ package com.example.mission.personnel.service;
 import com.example.mission.personnel.dto.PersonnelRequest;
 import com.example.mission.personnel.dto.PersonnelResponse;
 import com.example.mission.personnel.repository.PersonnelRepository;
+import com.example.mission.shared.security.SecurityService;
+import com.example.mission.shared.validator.UtilisateurValidator;
 import com.example.mission.user.entity.*;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +17,16 @@ public class PersonnelService {
 
     private final PersonnelRepository personnelRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityService securityService;
+    private final UtilisateurValidator utilisateurValidator;
+
 
     public PersonnelService(PersonnelRepository personnelRepository,
-                            PasswordEncoder passwordEncoder) {
+                            PasswordEncoder passwordEncoder, SecurityService securityService, UtilisateurValidator utilisateurValidator) {
         this.personnelRepository = personnelRepository;
         this.passwordEncoder = passwordEncoder;
+        this.securityService = securityService;
+        this.utilisateurValidator = utilisateurValidator;
     }
 
     // ============================================================
@@ -30,7 +34,7 @@ public class PersonnelService {
     // ============================================================
     @Transactional(readOnly = true)
     public List<PersonnelResponse> listerTous() {
-        verifierAuthentifie();
+        securityService.verifierAuthentifie();
         return personnelRepository.findAll()
                 .stream()
                 .map(this::toResponse)
@@ -42,7 +46,7 @@ public class PersonnelService {
     // ============================================================
     @Transactional(readOnly = true)
     public PersonnelResponse trouverParId(Long id) {
-        verifierAuthentifie();
+        securityService.verifierAuthentifie();
         Personnel personnel = personnelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Personnel introuvable: " + id));
         return toResponse(personnel);
@@ -51,101 +55,61 @@ public class PersonnelService {
     // ============================================================
     // 3. AJOUTER
     // ============================================================
+
     @Transactional
     public PersonnelResponse ajouter(PersonnelRequest request) {
-        verifierRole("DIRECTEUR", "DIRECTEUR_LOGISTIQUE");
+        securityService.verifierRole("DIRECTEUR");
 
-        // validations
-        if (request.getNom() == null || request.getNom().isBlank())
-            throw new IllegalArgumentException("Le nom est obligatoire");
-        if (request.getPrenom() == null || request.getPrenom().isBlank())
-            throw new IllegalArgumentException("Le prénom est obligatoire");
-        if (request.getCin() == null || request.getCin().isBlank())
-            throw new IllegalArgumentException("Le CIN est obligatoire");
-        if (request.getEmail() == null || request.getEmail().isBlank())
-            throw new IllegalArgumentException("L'email est obligatoire");
-        if (request.getMotDePasse() == null || request.getMotDePasse().length() < 6)
-            throw new IllegalArgumentException("Le mot de passe doit contenir au moins 6 caractères");
+        // ⚡ Validation centralisée
+        utilisateurValidator.validerChampsObligatoires(
+                request.getNom(), request.getPrenom(),
+                request.getCin(), request.getEmail(),
+                request.getMotDePasse()
+        );
+
+        // Validation spécifique Personnel
         if (request.getRole() == null || request.getRole().isBlank())
             throw new IllegalArgumentException("Le rôle est obligatoire");
 
-        // unicité
-        if (personnelRepository.existsByCin(request.getCin()))
-            throw new IllegalArgumentException("Un personnel avec ce CIN existe déjà");
-        if (personnelRepository.existsByEmail(request.getEmail()))
-            throw new IllegalArgumentException("Un personnel avec cet email existe déjà");
+        // ⚡ Unicité centralisée
+        utilisateurValidator.verifierUnicite(request.getCin(), request.getEmail());
 
         Personnel personnel = creerSelonRole(request.getRole());
         copierChamps(request, personnel, true);
         return toResponse(personnelRepository.save(personnel));
     }
 
-    // ============================================================
-    // 4. MODIFIER
-    // ============================================================
     @Transactional
     public PersonnelResponse modifier(Long id, PersonnelRequest request) {
-        verifierRole("DIRECTEUR", "DIRECTEUR_LOGISTIQUE");
+        securityService.verifierRole("DIRECTEUR");
 
         Personnel personnel = personnelRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Personnel introuvable: " + id));
 
-        if (request.getNom() == null || request.getNom().isBlank())
-            throw new IllegalArgumentException("Le nom est obligatoire");
-        if (request.getPrenom() == null || request.getPrenom().isBlank())
-            throw new IllegalArgumentException("Le prénom est obligatoire");
+        // ⚡ Validation centralisée
+        utilisateurValidator.validerChampsModification(
+                request.getNom(), request.getPrenom()
+        );
 
-        if (!personnel.getCin().equals(request.getCin())
-                && personnelRepository.existsByCin(request.getCin()))
-            throw new IllegalArgumentException("Un personnel avec ce CIN existe déjà");
-
-        if (!personnel.getEmail().equals(request.getEmail())
-                && personnelRepository.existsByEmail(request.getEmail()))
-            throw new IllegalArgumentException("Un personnel avec cet email existe déjà");
+        // ⚡ Unicité centralisée
+        utilisateurValidator.verifierUniciteModification(
+                personnel.getCin(), personnel.getEmail(),
+                request.getCin(), request.getEmail()
+        );
 
         copierChamps(request, personnel, false);
         return toResponse(personnelRepository.save(personnel));
     }
 
-    // ============================================================
-    // 5. SUPPRIMER
-    // ============================================================
+
     @Transactional
     public void supprimer(Long id) {
-        verifierRole("DIRECTEUR");
+        securityService.verifierRole("DIRECTEUR");
 
         if (!personnelRepository.existsById(id))
             throw new IllegalArgumentException("Personnel introuvable: " + id);
 
         personnelRepository.deleteById(id);
-    }
-
-    // ============================================================
-    // SÉCURITÉ
-    // ============================================================
-    private void verifierAuthentifie() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null
-                || !auth.isAuthenticated()
-                || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new AccessDeniedException("Vous devez être authentifié");
-        }
-    }
-
-    private void verifierRole(String... rolesAutorises) {
-        verifierAuthentifie();
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean autorise = auth.getAuthorities().stream()
-                .anyMatch(a -> {
-                    for (String role : rolesAutorises) {
-                        if (a.getAuthority().equals("ROLE_" + role)) return true;
-                    }
-                    return false;
-                });
-        if (!autorise) {
-            throw new AccessDeniedException(
-                    "Accès refusé. Rôles autorisés: " + String.join(", ", rolesAutorises));
-        }
     }
 
     // ============================================================
@@ -182,7 +146,7 @@ public class PersonnelService {
 
     private PersonnelResponse toResponse(Personnel p) {
         return new PersonnelResponse(
-                p.getId(),           // ⚡ AJOUTÉ
+                p.getId(),
                 p.getNom(),
                 p.getPrenom(),
                 p.getCin(),

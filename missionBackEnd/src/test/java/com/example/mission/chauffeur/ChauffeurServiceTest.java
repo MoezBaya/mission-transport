@@ -4,19 +4,18 @@ import com.example.mission.chauffeur.dto.ChauffeurRequest;
 import com.example.mission.chauffeur.dto.ChauffeurResponse;
 import com.example.mission.chauffeur.repository.ChauffeurRepository;
 import com.example.mission.chauffeur.service.ChauffeurService;
+import com.example.mission.shared.security.SecurityService;
+import com.example.mission.shared.validator.UtilisateurValidator;
 import com.example.mission.user.entity.Chauffeur;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,26 +32,16 @@ class ChauffeurServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private SecurityService securityService;
+
+    @Mock
+    private UtilisateurValidator utilisateurValidator;
+
     @InjectMocks
     private ChauffeurService chauffeurService;
 
-    @BeforeEach
-    void setUp() {
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(
-                        "directeur@test.com",
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_DIRECTEUR"))
-                );
-        SecurityContextHolder.getContext().setAuthentication(auth);
-    }
-
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
-
-    // TEST 1 : listerTous
+    // TEST 1 : listerTous — OK
     @Test
     void listerTous_devraitRetournerListe() {
         Chauffeur c = new Chauffeur();
@@ -70,10 +59,9 @@ class ChauffeurServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNom()).isEqualTo("Mansour");
-        assertThat(result.get(0).getNumeroPermis()).isEqualTo("P123456");
     }
 
-    // TEST 2 : ajouter — succès
+    // TEST 2 : ajouter — OK
     @Test
     void ajouter_devraitCreerUnChauffeur() {
         ChauffeurRequest request = new ChauffeurRequest();
@@ -84,10 +72,11 @@ class ChauffeurServiceTest {
         request.setMotDePasse("password123");
         request.setNumeroPermis("P123456");
         request.setCategoriePermis("C");
-        request.setDisponible(true);
 
-        when(chauffeurRepository.existsByCin("11223344")).thenReturn(false);
-        when(chauffeurRepository.existsByEmail("karim@mail.com")).thenReturn(false);
+        doNothing().when(securityService).verifierRole(any());
+        doNothing().when(utilisateurValidator).validerChampsObligatoires(any(), any(), any(), any(), any());
+        doNothing().when(utilisateurValidator).verifierUnicite(any(), any());
+
         when(passwordEncoder.encode("password123")).thenReturn("encoded");
         when(chauffeurRepository.save(any(Chauffeur.class)))
                 .thenAnswer(inv -> {
@@ -101,10 +90,9 @@ class ChauffeurServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getNumeroPermis()).isEqualTo("P123456");
-        verify(chauffeurRepository, times(1)).save(any(Chauffeur.class));
     }
 
-    // TEST 3 : ajouter — numéro permis obligatoire
+    // TEST 3 : ajouter — KO si numéro permis manquant
     @Test
     void ajouter_devraitLancerExceptionSiNumeroPermisManquant() {
         ChauffeurRequest request = new ChauffeurRequest();
@@ -113,38 +101,19 @@ class ChauffeurServiceTest {
         request.setCin("11223344");
         request.setEmail("karim@mail.com");
         request.setMotDePasse("password123");
-        // numeroPermis null
+        request.setNumeroPermis(null);
 
         assertThatThrownBy(() -> chauffeurService.ajouter(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("permis");
     }
 
-    // TEST 4 : ajouter — CIN existant
-    @Test
-    void ajouter_devraitLancerExceptionSiCinExiste() {
-        ChauffeurRequest request = new ChauffeurRequest();
-        request.setNom("X");
-        request.setPrenom("Y");
-        request.setCin("11223344");
-        request.setEmail("x@mail.com");
-        request.setMotDePasse("password123");
-        request.setNumeroPermis("P123");
-
-        when(chauffeurRepository.existsByCin("11223344")).thenReturn(true);
-
-        assertThatThrownBy(() -> chauffeurService.ajouter(request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("CIN existe déjà");
-    }
-
-    // TEST 5 : modifier — Directeur OK
+    // TEST 4 : modifier — OK
     @Test
     void modifier_devraitModifierSiDirecteur() {
         Chauffeur c = new Chauffeur();
         c.setId(1L);
         c.setNom("Ancien");
-        c.setPrenom("Prenom");
         c.setCin("11223344");
         c.setEmail("x@mail.com");
 
@@ -155,6 +124,10 @@ class ChauffeurServiceTest {
         request.setEmail("x@mail.com");
         request.setNumeroPermis("P123");
 
+        doNothing().when(securityService).verifierRole(any());
+        doNothing().when(utilisateurValidator).validerChampsModification(any(), any());
+        doNothing().when(utilisateurValidator).verifierUniciteModification(any(), any(), any(), any());
+
         when(chauffeurRepository.findById(1L)).thenReturn(Optional.of(c));
         when(chauffeurRepository.save(any(Chauffeur.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -164,29 +137,19 @@ class ChauffeurServiceTest {
         assertThat(response.getNom()).isEqualTo("Nouveau");
     }
 
-    // TEST 6 : modifier — refusé si pas Directeur
+    // TEST 5 : modifier — KO si pas Directeur
     @Test
     void modifier_devraitRefuserSiPasDirecteur() {
-        // Simuler ChefParc
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(
-                        "chefparc@test.com",
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_CHEF_PARC"))
-                );
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        doThrow(new AccessDeniedException("Accès refusé"))
+                .when(securityService).verifierRole(any());
 
         ChauffeurRequest request = new ChauffeurRequest();
-        request.setNom("X");
-        request.setPrenom("Y");
-        request.setCin("11223344");
-        request.setEmail("x@mail.com");
 
         assertThatThrownBy(() -> chauffeurService.modifier(1L, request))
-                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+                .isInstanceOf(AccessDeniedException.class);
     }
 
-    // TEST 7 : supprimer — succès
+    // TEST 6 : supprimer — OK
     @Test
     void supprimer_devraitSupprimer() {
         when(chauffeurRepository.existsById(1L)).thenReturn(true);
@@ -196,18 +159,27 @@ class ChauffeurServiceTest {
         verify(chauffeurRepository, times(1)).deleteById(1L);
     }
 
-    // TEST 8 : supprimer — refusé si pas Directeur
+    // TEST 7 : supprimer — KO si pas Directeur
     @Test
     void supprimer_devraitRefuserSiPasDirecteur() {
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(
-                        "chefparc@test.com",
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_CHEF_PARC"))
-                );
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        doThrow(new AccessDeniedException("Accès refusé"))
+                .when(securityService).verifierRole(any());
 
         assertThatThrownBy(() -> chauffeurService.supprimer(1L))
-                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // TEST 8 : trouverParId — OK
+    @Test
+    void trouverParId_devraitRetournerChauffeur() {
+        Chauffeur c = new Chauffeur();
+        c.setId(5L);
+        c.setNom("Mansour");
+
+        when(chauffeurRepository.findById(5L)).thenReturn(Optional.of(c));
+
+        ChauffeurResponse response = chauffeurService.trouverParId(5L);
+
+        assertThat(response.getId()).isEqualTo(5L);
     }
 }

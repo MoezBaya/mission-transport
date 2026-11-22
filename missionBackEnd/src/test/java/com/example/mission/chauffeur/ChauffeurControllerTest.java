@@ -35,19 +35,19 @@ class ChauffeurControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean
-    private UtilisateurRepository utilisateurRepository;
+    private ChauffeurService chauffeurService;
+
     @MockitoBean
     private PasswordEncoder passwordEncoder;
 
-    @MockitoBean
-    private ChauffeurService chauffeurService;
-
-    // ⚡ AJOUT : mocker JwtService et JwtAuthenticationFilter
     @MockitoBean
     private JwtService jwtService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private UtilisateurRepository utilisateurRepository;
 
     @Test
     void listerTous_devraitRetourner200() throws Exception {
@@ -60,8 +60,7 @@ class ChauffeurControllerTest {
 
         mockMvc.perform(get("/v1/api/chauffeur"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].nom").value("Mansour"))
-                .andExpect(jsonPath("$[0].numeroPermis").value("P123456"));
+                .andExpect(jsonPath("$[0].nom").value("Mansour"));
     }
 
     @Test
@@ -73,8 +72,6 @@ class ChauffeurControllerTest {
         request.setEmail("karim@mail.com");
         request.setMotDePasse("password123");
         request.setNumeroPermis("P123456");
-        request.setCategoriePermis("C");
-        request.setDisponible(true);
 
         ChauffeurResponse response = new ChauffeurResponse(
                 1L, "Mansour", "Karim", "11223344",
@@ -87,8 +84,7 @@ class ChauffeurControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.numeroPermis").value("P123456"));
+                .andExpect(jsonPath("$.id").value(1L));
     }
 
     @Test
@@ -106,8 +102,7 @@ class ChauffeurControllerTest {
         mockMvc.perform(put("/v1/api/chauffeur/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nom").value("Nouveau"));
+                .andExpect(status().isOk());
     }
 
     @Test

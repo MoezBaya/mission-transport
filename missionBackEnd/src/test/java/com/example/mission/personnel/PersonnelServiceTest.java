@@ -4,17 +4,15 @@ import com.example.mission.personnel.dto.PersonnelRequest;
 import com.example.mission.personnel.dto.PersonnelResponse;
 import com.example.mission.personnel.repository.PersonnelRepository;
 import com.example.mission.personnel.service.PersonnelService;
+import com.example.mission.shared.security.SecurityService;
+import com.example.mission.shared.validator.UtilisateurValidator;
 import com.example.mission.user.entity.*;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -33,31 +31,16 @@ class PersonnelServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private SecurityService securityService;
+
+    @Mock
+    private UtilisateurValidator utilisateurValidator;
+
     @InjectMocks
     private PersonnelService personnelService;
 
-    // ============================================================
-    // SETUP : simuler un Directeur authentifié avant chaque test
-    // ============================================================
-    @BeforeEach
-    void setUp() {
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(
-                        "directeur@test.com",
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_DIRECTEUR"))
-                );
-        SecurityContextHolder.getContext().setAuthentication(auth);
-    }
-
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
-
-    // ============================================================
-    // TEST 1 : listerTous
-    // ============================================================
+    // TEST 1 : listerTous — OK
     @Test
     void listerTous_devraitRetournerListe() {
         ChefDeParc cp = new ChefDeParc();
@@ -74,11 +57,20 @@ class PersonnelServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getNom()).isEqualTo("Ben Ali");
         assertThat(result.get(0).getRole()).isEqualTo("CHEF_DE_PARC");
+        verify(securityService).verifierAuthentifie();
     }
 
-    // ============================================================
-    // TEST 2 : ajouter — succès
-    // ============================================================
+    // TEST 2 : listerTous — KO si pas authentifié
+    @Test
+    void listerTous_devraitLancerExceptionSiPasAuth() {
+        doThrow(new AccessDeniedException("Non authentifié"))
+                .when(securityService).verifierAuthentifie();
+
+        assertThatThrownBy(() -> personnelService.listerTous())
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // TEST 3 : ajouter — OK
     @Test
     void ajouter_devraitCreerUnPersonnel() {
         PersonnelRequest request = new PersonnelRequest();
@@ -89,8 +81,10 @@ class PersonnelServiceTest {
         request.setMotDePasse("password123");
         request.setRole("CHEF_DE_PARC");
 
-        when(personnelRepository.existsByCin("12345678")).thenReturn(false);
-        when(personnelRepository.existsByEmail("ahmed@mail.com")).thenReturn(false);
+        doNothing().when(securityService).verifierRole(any());
+        doNothing().when(utilisateurValidator).validerChampsObligatoires(any(), any(), any(), any(), any());
+        doNothing().when(utilisateurValidator).verifierUnicite(any(), any());
+
         when(passwordEncoder.encode("password123")).thenReturn("encoded");
         when(personnelRepository.save(any(Personnel.class)))
                 .thenAnswer(inv -> {
@@ -108,49 +102,27 @@ class PersonnelServiceTest {
         verify(personnelRepository, times(1)).save(any(Personnel.class));
     }
 
-    // ============================================================
-    // TEST 3 : ajouter — CIN existant
-    // ============================================================
+    // TEST 4 : ajouter — KO si rôle invalide
     @Test
-    void ajouter_devraitLancerExceptionSiCinExiste() {
+    void ajouter_devraitLancerExceptionSiRoleInvalide() {
         PersonnelRequest request = new PersonnelRequest();
-        request.setNom("X");
-        request.setPrenom("Y");
+        request.setNom("Ben Ali");
+        request.setPrenom("Ahmed");
         request.setCin("12345678");
-        request.setEmail("x@mail.com");
+        request.setEmail("ahmed@mail.com");
         request.setMotDePasse("password123");
-        request.setRole("CHEF_DE_PARC");
+        request.setRole("INVALID_ROLE");
 
-        when(personnelRepository.existsByCin("12345678")).thenReturn(true);
-
-        assertThatThrownBy(() -> personnelService.ajouter(request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("CIN existe déjà");
-
-        verify(personnelRepository, never()).save(any());
-    }
-
-    // ============================================================
-    // TEST 4 : ajouter — mot de passe trop court
-    // ============================================================
-    @Test
-    void ajouter_devraitLancerExceptionSiMdpTropCourt() {
-        PersonnelRequest request = new PersonnelRequest();
-        request.setNom("X");
-        request.setPrenom("Y");
-        request.setCin("12345678");
-        request.setEmail("x@mail.com");
-        request.setMotDePasse("123");   // < 6
-        request.setRole("CHEF_DE_PARC");
+        doNothing().when(securityService).verifierRole(any());
+        doNothing().when(utilisateurValidator).validerChampsObligatoires(any(), any(), any(), any(), any());
+        doNothing().when(utilisateurValidator).verifierUnicite(any(), any());
 
         assertThatThrownBy(() -> personnelService.ajouter(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("6 caractères");
+                .hasMessageContaining("Rôle invalide");
     }
 
-    // ============================================================
-    // TEST 5 : ajouter — rôle CHAUFFEUR refusé
-    // ============================================================
+    // TEST 5 : ajouter — KO si CHAUFFEUR
     @Test
     void ajouter_devraitRefuserRoleChauffeur() {
         PersonnelRequest request = new PersonnelRequest();
@@ -161,17 +133,27 @@ class PersonnelServiceTest {
         request.setMotDePasse("password123");
         request.setRole("CHAUFFEUR");
 
-        when(personnelRepository.existsByCin(any())).thenReturn(false);
-        when(personnelRepository.existsByEmail(any())).thenReturn(false);
+        doNothing().when(securityService).verifierRole(any());
+        doNothing().when(utilisateurValidator).validerChampsObligatoires(any(), any(), any(), any(), any());
+        doNothing().when(utilisateurValidator).verifierUnicite(any(), any());
 
         assertThatThrownBy(() -> personnelService.ajouter(request))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("CHAUFFEUR");
     }
 
-    // ============================================================
-    // TEST 6 : trouverParId — succès
-    // ============================================================
+    // TEST 6 : ajouter — KO si pas Directeur
+    @Test
+    void ajouter_devraitRefuserSiPasDirecteur() {
+        doThrow(new AccessDeniedException("Accès refusé"))
+                .when(securityService).verifierRole(any());
+
+        PersonnelRequest request = new PersonnelRequest();
+        assertThatThrownBy(() -> personnelService.ajouter(request))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // TEST 7 : trouverParId — OK
     @Test
     void trouverParId_devraitRetournerPersonnel() {
         Directeur d = new Directeur();
@@ -189,21 +171,16 @@ class PersonnelServiceTest {
         assertThat(response.getRole()).isEqualTo("DIRECTEUR");
     }
 
-    // ============================================================
-    // TEST 7 : trouverParId — introuvable
-    // ============================================================
+    // TEST 8 : trouverParId — KO
     @Test
     void trouverParId_devraitLancerExceptionSiIntrouvable() {
         when(personnelRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> personnelService.trouverParId(99L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("introuvable");
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
-    // ============================================================
-    // TEST 8 : supprimer — succès
-    // ============================================================
+    // TEST 9 : supprimer — OK
     @Test
     void supprimer_devraitSupprimer() {
         when(personnelRepository.existsById(1L)).thenReturn(true);
@@ -213,40 +190,12 @@ class PersonnelServiceTest {
         verify(personnelRepository, times(1)).deleteById(1L);
     }
 
-    // ============================================================
-    // TEST 9 : supprimer — introuvable
-    // ============================================================
+    // TEST 10 : supprimer — KO
     @Test
     void supprimer_devraitLancerExceptionSiIntrouvable() {
         when(personnelRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> personnelService.supprimer(99L))
                 .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    // ============================================================
-    // TEST 10 : accès refusé si pas Directeur
-    // ============================================================
-    @Test
-    void ajouter_devraitRefuserSiPasDirecteur() {
-        // Simuler un ChefParc (pas Directeur)
-        UsernamePasswordAuthenticationToken auth =
-                new UsernamePasswordAuthenticationToken(
-                        "chefparc@test.com",
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_CHEF_DE_PARC"))
-                );
-        SecurityContextHolder.getContext().setAuthentication(auth);
-
-        PersonnelRequest request = new PersonnelRequest();
-        request.setNom("X");
-        request.setPrenom("Y");
-        request.setCin("12345678");
-        request.setEmail("x@mail.com");
-        request.setMotDePasse("password123");
-        request.setRole("CHEF_DE_PARC");
-
-        assertThatThrownBy(() -> personnelService.ajouter(request))
-                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
     }
 }

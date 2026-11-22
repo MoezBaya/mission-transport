@@ -37,9 +37,12 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
+    // ============================================================
     // TEST 1 : login — succès
+    // ============================================================
     @Test
     void login_devraitRetournerTokenEtInfos() {
+        // Arrange
         LoginRequest request = new LoginRequest();
         request.setEmail("directeur@mail.com");
         request.setMotDePasse("password123");
@@ -49,6 +52,7 @@ class AuthServiceTest {
         d.setNom("Ben Ali");
         d.setPrenom("Ahmed");
         d.setEmail("directeur@mail.com");
+        d.setTelephone("20123456");
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(null);
@@ -56,15 +60,25 @@ class AuthServiceTest {
                 .thenReturn(Optional.of(d));
         when(jwtService.generateToken(d)).thenReturn("fake.jwt.token");
 
+        // Act
         LoginResponse response = authService.login(request);
 
+        // Assert
         assertThat(response).isNotNull();
         assertThat(response.getToken()).isEqualTo("fake.jwt.token");
         assertThat(response.getEmail()).isEqualTo("directeur@mail.com");
+        assertThat(response.getNom()).isEqualTo("Ben Ali");
+        assertThat(response.getPrenom()).isEqualTo("Ahmed");
         assertThat(response.getRole()).isEqualTo(Role.DIRECTEUR);
+
+        // Verify
+        verify(authenticationManager, times(1)).authenticate(any());
+        verify(jwtService, times(1)).generateToken(d);
     }
 
+    // ============================================================
     // TEST 2 : login — mauvais mot de passe
+    // ============================================================
     @Test
     void login_devraitLancerExceptionSiMauvaisMdp() {
         LoginRequest request = new LoginRequest();
@@ -75,10 +89,15 @@ class AuthServiceTest {
                 .thenThrow(new BadCredentialsException("Bad credentials"));
 
         assertThatThrownBy(() -> authService.login(request))
-                .isInstanceOf(BadCredentialsException.class);
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessageContaining("Bad credentials");
+
+        verify(jwtService, never()).generateToken(any());
     }
 
-    // TEST 3 : login — utilisateur introuvable après auth
+    // ============================================================
+    // TEST 3 : login — utilisateur introuvable
+    // ============================================================
     @Test
     void login_devraitLancerExceptionSiUtilisateurIntrouvable() {
         LoginRequest request = new LoginRequest();
@@ -90,6 +109,71 @@ class AuthServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.login(request))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("introuvable");
+
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    // ============================================================
+    // TEST 4 : login — email null
+    // ============================================================
+    @Test
+    void login_devraitLancerExceptionSiEmailNull() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail(null);
+        request.setMotDePasse("password123");
+
+        // Le service doit vérifier avant d'appeler authenticate
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(Exception.class);
+    }
+
+    // ============================================================
+    // TEST 5 : login — mot de passe null
+    // ============================================================
+    @Test
+    void login_devraitLancerExceptionSiMotDePasseNull() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("test@mail.com");
+        request.setMotDePasse(null);
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(Exception.class);
+    }
+
+    // ============================================================
+    // TEST 6 : logout — ne doit pas planter
+    // ============================================================
+    @Test
+    void logout_devraitNePasPlanter() {
+        assertThatCode(() -> authService.logout())
+                .doesNotThrowAnyException();
+    }
+
+    // ============================================================
+    // TEST 7 : login — vérifier que le token est bien généré
+    // ============================================================
+    @Test
+    void login_devraitAppelerJwtService() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("directeur@mail.com");
+        request.setMotDePasse("password123");
+
+        Directeur d = new Directeur();
+        d.setId(1L);
+        d.setNom("Ben Ali");
+        d.setPrenom("Ahmed");
+        d.setEmail("directeur@mail.com");
+
+        when(authenticationManager.authenticate(any())).thenReturn(null);
+        when(utilisateurRepository.findByEmail("directeur@mail.com"))
+                .thenReturn(Optional.of(d));
+        when(jwtService.generateToken(d)).thenReturn("token");
+
+        authService.login(request);
+
+        // Vérifier que jwtService a bien été appelé
+        verify(jwtService, times(1)).generateToken(d);
     }
 }

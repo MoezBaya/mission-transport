@@ -16,14 +16,12 @@ public class Vehicule extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 30)
     private String matricule;
-
     private String marque;
-
     private String modele;
-
+    private Integer annee;
     @Column(nullable = false)
-    private int kilometrage;
-
+    private Long kilometrage;
+    private String type;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EtatVehicule etat = EtatVehicule.DISPONIBLE;

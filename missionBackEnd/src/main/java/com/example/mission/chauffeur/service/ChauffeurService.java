@@ -3,10 +3,9 @@ package com.example.mission.chauffeur.service;
 import com.example.mission.chauffeur.dto.ChauffeurRequest;
 import com.example.mission.chauffeur.dto.ChauffeurResponse;
 import com.example.mission.chauffeur.repository.ChauffeurRepository;
+import com.example.mission.shared.security.SecurityService;
+import com.example.mission.shared.validator.UtilisateurValidator;
 import com.example.mission.user.entity.Chauffeur;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,19 +17,26 @@ public class ChauffeurService {
 
     private final ChauffeurRepository chauffeurRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityService securityService;
+    private final UtilisateurValidator utilisateurValidator;   // ⚡
 
     public ChauffeurService(ChauffeurRepository chauffeurRepository,
-                            PasswordEncoder passwordEncoder) {
+                            PasswordEncoder passwordEncoder,
+                            SecurityService securityService,
+                            UtilisateurValidator utilisateurValidator) {
         this.chauffeurRepository = chauffeurRepository;
         this.passwordEncoder = passwordEncoder;
+        this.securityService = securityService;
+        this.utilisateurValidator = utilisateurValidator;
     }
+
 
     // ============================================================
     // 1. LISTER — tous les rôles authentifiés
     // ============================================================
     @Transactional(readOnly = true)
     public List<ChauffeurResponse> listerTous() {
-        verifierAuthentifie();
+        securityService.verifierAuthentifie();
         return chauffeurRepository.findAll()
                 .stream()
                 .map(this::toResponse)
@@ -42,67 +48,53 @@ public class ChauffeurService {
     // ============================================================
     @Transactional(readOnly = true)
     public ChauffeurResponse trouverParId(Long id) {
-        verifierAuthentifie();
+        securityService.verifierAuthentifie();
         Chauffeur c = chauffeurRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Chauffeur introuvable: " + id));
         return toResponse(c);
     }
 
-    // ============================================================
-    // 3. AJOUTER — ChefParc + Directeur + DirecteurLogistique
-    // ============================================================
-    @Transactional
-    public ChauffeurResponse ajouter(ChauffeurRequest request) {
-        verifierRole("DIRECTEUR");
 
-        // validations
-        if (request.getNom() == null || request.getNom().isBlank())
-            throw new IllegalArgumentException("Le nom est obligatoire");
-        if (request.getPrenom() == null || request.getPrenom().isBlank())
-            throw new IllegalArgumentException("Le prénom est obligatoire");
-        if (request.getCin() == null || request.getCin().isBlank())
-            throw new IllegalArgumentException("Le CIN est obligatoire");
-        if (request.getEmail() == null || request.getEmail().isBlank())
-            throw new IllegalArgumentException("L'email est obligatoire");
-        if (request.getMotDePasse() == null || request.getMotDePasse().length() < 6)
-            throw new IllegalArgumentException("Le mot de passe doit contenir au moins 6 caractères");
-        if (request.getNumeroPermis() == null || request.getNumeroPermis().isBlank())
-            throw new IllegalArgumentException("Le numéro de permis est obligatoire");
+        @Transactional
+        public ChauffeurResponse ajouter(ChauffeurRequest request) {
+            securityService.verifierRole("DIRECTEUR");
 
-        // unicité
-        if (chauffeurRepository.existsByCin(request.getCin()))
-            throw new IllegalArgumentException("Un chauffeur avec ce CIN existe déjà");
-        if (chauffeurRepository.existsByEmail(request.getEmail()))
-            throw new IllegalArgumentException("Un chauffeur avec cet email existe déjà");
+            // ⚡ Validation centralisée
+            utilisateurValidator.validerChampsObligatoires(
+                    request.getNom(), request.getPrenom(),
+                    request.getCin(), request.getEmail(),
+                    request.getMotDePasse()
+            );
 
-        Chauffeur chauffeur = new Chauffeur();
-        copierChamps(request, chauffeur, true);
-        return toResponse(chauffeurRepository.save(chauffeur));
-    }
+            // Validation spécifique Chauffeur
+            if (request.getNumeroPermis() == null || request.getNumeroPermis().isBlank())
+                throw new IllegalArgumentException("Le numéro de permis est obligatoire");
 
-    // ============================================================
-    // 4. MODIFIER — SEULEMENT Directeur ⚡
-    // ============================================================
+            // ⚡ Unicité centralisée
+            utilisateurValidator.verifierUnicite(request.getCin(), request.getEmail());
+
+            Chauffeur chauffeur = new Chauffeur();
+            copierChamps(request, chauffeur, true);
+            return toResponse(chauffeurRepository.save(chauffeur));
+        }
+
     @Transactional
     public ChauffeurResponse modifier(Long id, ChauffeurRequest request) {
-        verifierRole("DIRECTEUR");   // ⚡ Directeur seulement
+        securityService.verifierRole("DIRECTEUR");
 
         Chauffeur chauffeur = chauffeurRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Chauffeur introuvable: " + id));
 
-        if (request.getNom() == null || request.getNom().isBlank())
-            throw new IllegalArgumentException("Le nom est obligatoire");
-        if (request.getPrenom() == null || request.getPrenom().isBlank())
-            throw new IllegalArgumentException("Le prénom est obligatoire");
+        // ⚡ Validation centralisée
+        utilisateurValidator.validerChampsModification(
+                request.getNom(), request.getPrenom()
+        );
 
-        // unicité (si changé)
-        if (!chauffeur.getCin().equals(request.getCin())
-                && chauffeurRepository.existsByCin(request.getCin()))
-            throw new IllegalArgumentException("Un chauffeur avec ce CIN existe déjà");
-
-        if (!chauffeur.getEmail().equals(request.getEmail())
-                && chauffeurRepository.existsByEmail(request.getEmail()))
-            throw new IllegalArgumentException("Un chauffeur avec cet email existe déjà");
+        // ⚡ Unicité centralisée
+        utilisateurValidator.verifierUniciteModification(
+                chauffeur.getCin(), chauffeur.getEmail(),
+                request.getCin(), request.getEmail()
+        );
 
         copierChamps(request, chauffeur, false);
         return toResponse(chauffeurRepository.save(chauffeur));
@@ -113,7 +105,7 @@ public class ChauffeurService {
     // ============================================================
     @Transactional
     public void supprimer(Long id) {
-        verifierRole("DIRECTEUR");   // ⚡ Directeur seulement
+        securityService.verifierRole("DIRECTEUR");   // ⚡ Directeur seulement
 
         if (!chauffeurRepository.existsById(id))
             throw new IllegalArgumentException("Chauffeur introuvable: " + id);
@@ -121,32 +113,6 @@ public class ChauffeurService {
         chauffeurRepository.deleteById(id);
     }
 
-    // ============================================================
-    // SÉCURITÉ
-    // ============================================================
-    private void verifierAuthentifie() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()
-                || "anonymousUser".equals(auth.getPrincipal())) {
-            throw new AccessDeniedException("Vous devez être authentifié");
-        }
-    }
-
-    private void verifierRole(String... rolesAutorises) {
-        verifierAuthentifie();
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        boolean autorise = auth.getAuthorities().stream()
-                .anyMatch(a -> {
-                    for (String role : rolesAutorises) {
-                        if (a.getAuthority().equals("ROLE_" + role)) return true;
-                    }
-                    return false;
-                });
-        if (!autorise) {
-            throw new AccessDeniedException(
-                    "Accès refusé. Rôles autorisés: " + String.join(", ", rolesAutorises));
-        }
-    }
 
     // ============================================================
     // HELPERS
