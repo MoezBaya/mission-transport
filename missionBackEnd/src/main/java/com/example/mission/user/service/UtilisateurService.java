@@ -1,5 +1,6 @@
 package com.example.mission.user.service;
 
+import com.example.mission.shared.security.SecurityService;
 import com.example.mission.user.dto.ModifierMdpRequest;
 import com.example.mission.user.entity.Utilisateur;
 import com.example.mission.user.repository.UtilisateurRepository;
@@ -14,11 +15,13 @@ public class UtilisateurService {
 
     private final UtilisateurRepository utilisateurRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityService securityService;
 
     public UtilisateurService(UtilisateurRepository utilisateurRepository,
-                              PasswordEncoder passwordEncoder) {
+                              PasswordEncoder passwordEncoder, SecurityService securityService) {
         this.utilisateurRepository = utilisateurRepository;
         this.passwordEncoder = passwordEncoder;
+        this.securityService = securityService;
     }
 
     @Transactional
