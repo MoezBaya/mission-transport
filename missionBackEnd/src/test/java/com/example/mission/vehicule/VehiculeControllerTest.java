@@ -53,7 +53,7 @@ class VehiculeControllerTest {
     void listerTous_devraitRetourner200() throws Exception {
         VehiculeResponse r = new VehiculeResponse(
                 1L, "123 TUN 4567", "Renault", "Kangoo",
-                15000L, EtatVehicule.DISPONIBLE , "suvp"
+                null, "suvp", 15000L, EtatVehicule.DISPONIBLE
         );
         when(vehiculeService.listerTous()).thenReturn(List.of(r));
 
@@ -73,7 +73,7 @@ class VehiculeControllerTest {
 
         VehiculeResponse response = new VehiculeResponse(
                 1L, "123 TUN 4567", "Renault", "Kangoo",
-                15000L, EtatVehicule.DISPONIBLE, "brek up"
+                null, "brek up", 15000L, EtatVehicule.DISPONIBLE
         );
         when(vehiculeService.ajouter(any(VehiculeRequest.class))).thenReturn(response);
 
@@ -92,14 +92,14 @@ class VehiculeControllerTest {
 
         VehiculeResponse response = new VehiculeResponse(
                 1L, "123 TUN 4567", "Peugeot", "Partner",
-                20000L, EtatVehicule.EN_MISSION , "pick-up"
+                null, "pick-up", 20000L, EtatVehicule.EN_MISSION
         );
         when(vehiculeService.modifier(any(), any())).thenReturn(response);
 
         mockMvc.perform(put("/v1/api/vehicule/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
     }
 
     @Test

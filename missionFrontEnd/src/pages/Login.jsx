@@ -20,8 +20,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await doLogin(email, motDePasse);
-      navigate("/dashboard");
+      const loggedUser = await doLogin(email, motDePasse);
+      if (loggedUser?.role === "CHEF_DE_PARC") {
+        navigate("/dashboard-chef-de-parc");
+      } else if (loggedUser?.role === "CHAUFFEUR") {
+        navigate("/dashboard-chauffeur");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (loginError) {
       setError(loginError.message);
     } finally {

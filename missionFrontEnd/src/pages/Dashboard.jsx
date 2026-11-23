@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Users, BusFront, ClipboardList, ArrowDown, ChevronRight, Sun } from "lucide-react";
 import Layout from "../components/Layout";
 import PageBreadcrumb from "../components/PageBreadcrumb";
+import { useAuth } from "../context/authContext";
 import { chauffeurApi } from "../api/chauffeurs";
 import { personnelApi } from "../api/personnels";
 import { vehiculeApi } from "../api/vehicules";
@@ -32,6 +34,15 @@ function StatCard({ label, value, icon: Icon, tone }) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
+  if (user?.role === "CHEF_DE_PARC") {
+    return <Navigate to="/dashboard-chef-de-parc" replace />;
+  }
+  if (user?.role === "CHAUFFEUR") {
+    return <Navigate to="/dashboard-chauffeur" replace />;
+  }
+
   const [counts, setCounts] = useState({ personnels: 0, chauffeurs: 0, vehicules: 0 });
 
   useEffect(() => {

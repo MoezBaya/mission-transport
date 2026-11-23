@@ -15,15 +15,4 @@ public class VehiculeResponse {
     private String type;
     private Long kilometrage;
     private EtatVehicule etat;
-
-    public VehiculeResponse(Long id, String matricule, String marque, String modele, Long kilometrage, EtatVehicule etat , String type) {
-        this.id = id;
-        this.matricule = matricule;
-        this.marque = marque;
-        this.modele = modele;
-        this.kilometrage = kilometrage;
-        this.etat = etat;
-        this.type = type;
-
-    }
 }

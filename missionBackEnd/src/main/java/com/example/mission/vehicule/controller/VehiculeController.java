@@ -40,7 +40,8 @@ public class VehiculeController {
     @PutMapping("/{id}")
     public ResponseEntity<VehiculeResponse> modifier(@PathVariable Long id,
                                                      @RequestBody VehiculeRequest request) {
-        return ResponseEntity.ok(vehiculeService.modifier(id, request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(vehiculeService.modifier(id, request));
     }
 
     @DeleteMapping("/{id}")

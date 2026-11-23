@@ -106,6 +106,7 @@ public class VehiculeService {
         v.setMatricule(r.getMatricule());
         v.setMarque(r.getMarque());
         v.setModele(r.getModele());
+        v.setAnnee(r.getAnnee());
         v.setKilometrage(r.getKilometrage());
         v.setType(r.getType());
         v.setEtat(r.getEtat() != null ? r.getEtat() : EtatVehicule.DISPONIBLE);
@@ -117,9 +118,10 @@ public class VehiculeService {
                 v.getMatricule(),
                 v.getMarque(),
                 v.getModele(),
+                v.getAnnee(),
+                v.getType(),
                 v.getKilometrage(),
-                v.getEtat(),
-                v.getType()
+                v.getEtat()
         );
     }
 }

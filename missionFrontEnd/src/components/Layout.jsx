@@ -1,11 +1,41 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, ClipboardList, Fuel, Users, BusFront, ChevronDown, LockKeyhole, LogOut } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Fuel, Users, BusFront, ChevronDown, LockKeyhole, LogOut, BookOpen, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/authContext";
 import logo1 from "../assets/img/logo1.png";
 import "./Layout.css";
 
-const menuItems = [
+const menuByRole = {
+  DIRECTEUR: [
+    { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+    { to: "/ordres-mission", label: "Ordres de mission", icon: ClipboardList },
+    { to: "/ravitailllement", label: "Demandes de ravitaillement", icon: Fuel },
+    { to: "/chauffeurs", label: "Liste des chauffeurs", icon: Users },
+    { to: "/vehicules", label: "Liste des véhicules", icon: BusFront },
+    { to: "/personnels", label: "Liste des personnels", icon: Users },
+  ],
+  CHEF_DE_PARC: [
+    { to: "/dashboard-chef-de-parc", label: "Tableau de bord", icon: LayoutDashboard },
+    { to: "/ordres-mission", label: "Ordres de mission", icon: ClipboardList },
+    { to: "/ravitailllement", label: "Demandes de ravitaillement", icon: Fuel },
+    { to: "/chauffeurs", label: "Liste des chauffeurs", icon: Users },
+    { to: "/vehicules", label: "Liste des véhicules", icon: BusFront },
+  ],
+  CHAUFFEUR: [
+    { to: "/dashboard-chauffeur", label: "Tableau de bord", icon: LayoutDashboard },
+    { to: "/ordres-mission", label: "Mes missions", icon: ClipboardList },
+    { to: "/ravitailllement", label: "Carburant", icon: Fuel },
+    { to: "/carnets-de-bord", label: "Carnets de bord", icon: BookOpen },
+    { to: "/reclamations", label: "Réclamations", icon: AlertTriangle },
+  ],
+  DIRECTEUR_LOGISTIQUE: [
+    { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
+    { to: "/ravitailllement", label: "Demandes de ravitaillement", icon: Fuel },
+    { to: "/vehicules", label: "Liste des véhicules", icon: BusFront },
+  ],
+};
+
+const defaultMenu = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/ordres-mission", label: "Ordres de mission", icon: ClipboardList },
   { to: "/ravitailllement", label: "Demandes de ravitaillement", icon: Fuel },
@@ -37,10 +67,22 @@ function UserMenu({ user, onLogout }) {
   );
 }
 
+const roleHeadings = {
+  DIRECTEUR: "Espace directeur",
+  CHEF_DE_PARC: "Espace chef de parc",
+  CHAUFFEUR: "Espace chauffeur",
+  DIRECTEUR_LOGISTIQUE: "Espace dir. logistique",
+};
+
 function SidebarNavigation() {
+  const { user } = useAuth();
+  const role = user?.role || "";
+  const menuItems = menuByRole[role] || defaultMenu;
+  const heading = roleHeadings[role] || "Espace utilisateur";
+
   return (
     <aside className="app-sidebar">
-      <p className="sidebar-heading">Espace directeur</p>
+      <p className="sidebar-heading">{heading}</p>
       <nav className="sidebar-nav" aria-label="Navigation principale">
         {menuItems.map(({ to, label, icon: Icon }) => (
           <NavLink className={({ isActive }) => `sidebar-link${isActive ? " sidebar-link--active" : ""}`} key={to} to={to}>
