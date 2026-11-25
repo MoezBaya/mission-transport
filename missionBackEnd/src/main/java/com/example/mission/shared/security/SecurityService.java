@@ -5,6 +5,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 @Service
 public class SecurityService {
 
@@ -21,10 +23,11 @@ public class SecurityService {
         verifierAuthentifie();
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        assert auth != null;
         boolean autorise = auth.getAuthorities().stream()
                 .anyMatch(a -> {
                     for (String role : rolesAutorises) {
-                        if (a.getAuthority().equals("ROLE_" + role)) {
+                        if (Objects.equals(a.getAuthority(), "ROLE_" + role)) {
                             return true;
                         }
                     }
@@ -47,6 +50,6 @@ public class SecurityService {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return false;
         return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_" + role));
+                .anyMatch(a -> Objects.requireNonNull(a.getAuthority()).equals("ROLE_" + role));
     }
 }

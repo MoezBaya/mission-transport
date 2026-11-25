@@ -4,6 +4,7 @@ import com.example.mission.shared.security.SecurityService;
 import com.example.mission.user.dto.ModifierMdpRequest;
 import com.example.mission.user.entity.Utilisateur;
 import com.example.mission.user.repository.UtilisateurRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +27,14 @@ public class UtilisateurService {
 
     @Transactional
     public void changerMotDePasse(String email, ModifierMdpRequest request) {
+
+        securityService.verifierAuthentifie();
+
+        String emailConnecte = securityService.getEmailConnecte();
+        if (!emailConnecte.equals(email)) {
+            throw new AccessDeniedException(
+                    "Vous ne pouvez pas modifier le mot de passe d'un autre utilisateur");
+        }
 
         if (!request.getNouveauMotDePasse().equals(request.getConfirmationMotDePasse())) {
             throw new IllegalArgumentException("Les nouveaux mots de passe ne correspondent pas");
