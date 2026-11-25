@@ -20,8 +20,7 @@ public class UtilisateurController {
 
     @PutMapping("/me/password")
     public ResponseEntity<?> changerMotDePasse(
-            @RequestBody ModifierMdpRequest request,
-            Authentication authentication) {
+            @RequestBody ModifierMdpRequest request, Authentication authentication) {
 
         if (authentication == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Non authentifié");

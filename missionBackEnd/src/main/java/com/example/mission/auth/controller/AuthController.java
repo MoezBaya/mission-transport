@@ -24,11 +24,9 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
             LoginResponse response = authService.login(request);
-
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body("Email ou mot de passe incorrect");

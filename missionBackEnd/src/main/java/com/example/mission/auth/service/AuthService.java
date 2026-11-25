@@ -1,7 +1,5 @@
 package com.example.mission.auth.service;
 
-
-
 import com.example.mission.auth.dto.LoginRequest;
 import com.example.mission.auth.dto.LoginResponse;
 import com.example.mission.shared.security.JwtService;
@@ -38,8 +36,8 @@ public class AuthService {
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getMotDePasse())
+                        request.getEmail(), request.getMotDePasse()
+                )
         );
 
         Utilisateur utilisateur = utilisateurRepository.findByEmail(request.getEmail())
@@ -59,7 +57,7 @@ public class AuthService {
     }
 
     public void logout() {
-        // JWT stateless : rien à faire
+
     }
 }
 
